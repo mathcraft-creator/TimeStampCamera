@@ -53,17 +53,27 @@ fun AppRoot() {
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     var hasCamera by remember { mutableStateOf(granted(Manifest.permission.CAMERA)) }
+    fun hasLocationPermission() =
+        granted(Manifest.permission.ACCESS_FINE_LOCATION) ||
+            granted(Manifest.permission.ACCESS_COARSE_LOCATION)
 
-    val permissionLauncher = rememberLauncherForActivityResult(
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
         hasCamera = result[Manifest.permission.CAMERA] ?: hasCamera
     }
 
-    fun requestPermissions() {
-        permissionLauncher.launch(
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
+
+    fun requestCameraPermission() {
+        cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+    }
+
+    fun requestLocationPermission() {
+        locationPermissionLauncher.launch(
             arrayOf(
-                Manifest.permission.CAMERA,
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
@@ -72,7 +82,13 @@ fun AppRoot() {
 
     // 처음 실행 시 카메라 권한이 없으면 바로 요청
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (!hasCamera) requestPermissions()
+        if (!hasCamera) requestCameraPermission()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(hasCamera, config.showGps, config.showAddress) {
+        if (hasCamera && (config.showGps || config.showAddress) && !hasLocationPermission()) {
+            requestLocationPermission()
+        }
     }
 
     when {
@@ -90,7 +106,7 @@ fun AppRoot() {
             onOpenSettings = { showSettings = true }
         )
 
-        else -> PermissionPrompt(onRequest = { requestPermissions() })
+        else -> PermissionPrompt(onRequest = { requestCameraPermission() })
     }
 }
 
