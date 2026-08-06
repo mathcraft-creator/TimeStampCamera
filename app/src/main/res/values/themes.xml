@@ -1,0 +1,8 @@
+<resources>
+    <!-- Compose 가 UI 를 직접 그리므로 액션바 없는 기본 테마만 있으면 된다. -->
+    <style name="Theme.TimestampCamera" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>
