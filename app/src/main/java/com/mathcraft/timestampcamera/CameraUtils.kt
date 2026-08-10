@@ -27,6 +27,18 @@ fun imageProxyToBitmap(image: ImageProxy): Bitmap {
     return rotated
 }
 
+/** 비트맵을 정사각형으로 크롭한다. */
+fun cropToSquare(bitmap: Bitmap): Bitmap {
+    val width = bitmap.width
+    val height = bitmap.height
+    val newEdge = if (width > height) height else width
+    val xOffset = if (width > height) (width - height) / 2 else 0
+    val yOffset = if (height > width) (height - width) / 2 else 0
+    val cropped = Bitmap.createBitmap(bitmap, xOffset, yOffset, newEdge, newEdge)
+    if (cropped != bitmap) bitmap.recycle()
+    return cropped
+}
+
 /** 비트맵을 갤러리(사진/TimestampCamera)에 JPEG 로 저장하고 Uri 를 반환한다. */
 fun saveBitmapToGallery(context: Context, bitmap: Bitmap): Uri? {
     val fileName = "TS_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".jpg"
