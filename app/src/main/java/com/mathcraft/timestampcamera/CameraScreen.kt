@@ -64,7 +64,8 @@ import java.util.Date
 @Composable
 fun CameraScreen(
     config: StampConfig,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onChange: (StampConfig) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -169,10 +170,18 @@ fun CameraScreen(
                         val uri = withContext(Dispatchers.Default) {
                             try {
                                 var bmp = imageProxyToBitmap(image)
-                                
+
                                 // 1:1 비율이면 크롭
                                 if (config.aspectRatio == StampAspectRatio.RATIO_1_1) {
                                     bmp = cropToSquare(bmp)
+                                }
+
+                                // 뷰티 필터(잡티 보정/화사함) 적용 — 각인/테두리보다 먼저 적용해
+                                // 텍스트나 로고는 필터 영향을 받지 않게 한다.
+                                if (config.beautyEnabled) {
+                                    val filtered = BeautyFilter.apply(bmp, config.beautySmooth, config.beautyBrighten)
+                                    if (filtered !== bmp) bmp.recycle()
+                                    bmp = filtered
                                 }
 
                                 val loc = if (config.showGps || config.showAddress) {
@@ -339,6 +348,26 @@ fun CameraScreen(
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 6.dp)
+            )
+        }
+
+        // 뷰티 필터 빠른 전환 버튼 (전환 버튼 바로 아래)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 82.dp, start = 16.dp)
+                .size(54.dp)
+                .clip(CircleShape)
+                .background(if (config.beautyEnabled) Color(0xFFFF80AB) else Color.White.copy(alpha = 0.85f))
+                .clickable { onChange(config.copy(beautyEnabled = !config.beautyEnabled)) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "✨뷰티",
+                color = Color.Black,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
 

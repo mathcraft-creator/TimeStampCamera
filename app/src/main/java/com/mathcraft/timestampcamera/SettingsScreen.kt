@@ -93,7 +93,39 @@ fun SettingsScreen(
             )
         }
 
-        // 2) 사진 비율
+        // 2) 뷰티 필터
+        ExpandableSection("뷰티 필터", expandedSection == "beauty", onToggle = { toggle("beauty") }) {
+            ToggleRow("뷰티 필터 사용", config.beautyEnabled) { onChange(config.copy(beautyEnabled = it)) }
+
+            if (config.beautyEnabled) {
+                Text(
+                    "얼굴만 인식해서 보정하는 방식이 아니라 사진 전체에 적용돼요. 배경도 함께 살짝 부드러워질 수 있어요.",
+                    color = Color(0xFFAAAAAA),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+
+                Text("잡티 보정 (${config.beautySmooth})", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                Slider(
+                    value = config.beautySmooth.toFloat(),
+                    onValueChange = { onChange(config.copy(beautySmooth = it.roundToInt())) },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Text("화사함 (${config.beautyBrighten})", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                Slider(
+                    value = config.beautyBrighten.toFloat(),
+                    onValueChange = { onChange(config.copy(beautyBrighten = it.roundToInt())) },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
+
+        // 3) 사진 비율
         ExpandableSection("사진 비율", expandedSection == "ratio", onToggle = { toggle("ratio") }) {
             ChipRow {
                 StampAspectRatio.values().forEach { ratio ->
@@ -106,7 +138,7 @@ fun SettingsScreen(
             }
         }
 
-        // 3) 날짜 형식
+        // 4) 날짜 형식
         ExpandableSection("날짜 형식", expandedSection == "dateFormat", onToggle = { toggle("dateFormat") }) {
             ChipRow {
                 StampTemplate.values().forEach { temp ->
@@ -119,7 +151,7 @@ fun SettingsScreen(
             }
         }
 
-        // 4) 각인 위치
+        // 5) 각인 위치
         ExpandableSection("각인 위치", expandedSection == "position", onToggle = { toggle("position") }) {
             ChipRow {
                 StampPosition.values().forEach { pos ->
@@ -132,7 +164,7 @@ fun SettingsScreen(
             }
         }
 
-        // 5) 글자 크기
+        // 6) 글자 크기
         ExpandableSection("글자 크기 (${config.fontSize} PT)", expandedSection == "fontSize", onToggle = { toggle("fontSize") }) {
             Slider(
                 value = config.fontSize.toFloat(),
@@ -143,7 +175,7 @@ fun SettingsScreen(
             )
         }
 
-        // 6) 글자 색
+        // 7) 글자 색
         ExpandableSection("글자 색", expandedSection == "textColor", onToggle = { toggle("textColor") }) {
             ChipRow {
                 StampColorOption.values().forEach { c ->
@@ -164,7 +196,7 @@ fun SettingsScreen(
             }
         }
 
-        // 7) 글꼴
+        // 8) 글꼴
         ExpandableSection("글꼴", expandedSection == "font", onToggle = { toggle("font") }) {
             ChipRow {
                 StampFontOption.values().forEach { f ->
@@ -177,7 +209,7 @@ fun SettingsScreen(
             }
         }
 
-        // 8) 로고 설정
+        // 9) 로고 설정
         ExpandableSection("로고 설정 (Butterfly)", expandedSection == "logo", onToggle = { toggle("logo") }) {
             ToggleRow("로고 표시", config.showLogo) { onChange(config.copy(showLogo = it)) }
 
@@ -226,7 +258,7 @@ fun SettingsScreen(
             }
         }
 
-        // 9) 테두리 설정
+        // 10) 테두리 설정
         ExpandableSection("테두리 설정", expandedSection == "border", onToggle = { toggle("border") }) {
             ChipRow {
                 StampBorder.values().forEach { b ->

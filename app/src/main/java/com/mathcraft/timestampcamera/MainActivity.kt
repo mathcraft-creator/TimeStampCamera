@@ -103,7 +103,11 @@ fun AppRoot() {
 
         hasCamera -> CameraScreen(
             config = config,
-            onOpenSettings = { showSettings = true }
+            onOpenSettings = { showSettings = true },
+            onChange = {
+                config = it
+                repo.save(it)
+            }
         )
 
         else -> PermissionPrompt(onRequest = { requestCameraPermission() })

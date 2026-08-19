@@ -165,7 +165,10 @@ data class StampConfig(
     val logoColor: StampLogoColor = StampLogoColor.GOLD,
     val border: StampBorder = StampBorder.NONE,
     val borderColor: Int = StampBorderColor.GOLD.color,
-    val borderThickness: Int = 18
+    val borderThickness: Int = 18,
+    val beautyEnabled: Boolean = false,
+    val beautySmooth: Int = 50,
+    val beautyBrighten: Int = 40
 )
 
 /** SharedPreferences 로 설정을 저장/복원한다. */
@@ -192,7 +195,10 @@ class SettingsRepository(context: Context) {
         logoColor = safeEnum(prefs.getString(KEY_LOGO_COLOR, null), StampLogoColor.GOLD),
         border = safeEnum(prefs.getString(KEY_BORDER, null), StampBorder.NONE),
         borderColor = prefs.getInt(KEY_BORDER_COLOR, StampBorderColor.GOLD.color),
-        borderThickness = prefs.getInt(KEY_BORDER_THICKNESS, 18)
+        borderThickness = prefs.getInt(KEY_BORDER_THICKNESS, 18),
+        beautyEnabled = prefs.getBoolean(KEY_BEAUTY_ENABLED, false),
+        beautySmooth = prefs.getInt(KEY_BEAUTY_SMOOTH, 50),
+        beautyBrighten = prefs.getInt(KEY_BEAUTY_BRIGHTEN, 40)
     )
 
     fun save(c: StampConfig) {
@@ -215,6 +221,9 @@ class SettingsRepository(context: Context) {
             .putString(KEY_BORDER, c.border.name)
             .putInt(KEY_BORDER_COLOR, c.borderColor)
             .putInt(KEY_BORDER_THICKNESS, c.borderThickness)
+            .putBoolean(KEY_BEAUTY_ENABLED, c.beautyEnabled)
+            .putInt(KEY_BEAUTY_SMOOTH, c.beautySmooth)
+            .putInt(KEY_BEAUTY_BRIGHTEN, c.beautyBrighten)
             .apply()
     }
 
@@ -244,5 +253,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_BORDER = "border"
         private const val KEY_BORDER_COLOR = "borderColor"
         private const val KEY_BORDER_THICKNESS = "borderThickness"
+        private const val KEY_BEAUTY_ENABLED = "beautyEnabled"
+        private const val KEY_BEAUTY_SMOOTH = "beautySmooth"
+        private const val KEY_BEAUTY_BRIGHTEN = "beautyBrighten"
     }
 }
