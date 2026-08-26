@@ -1,7 +1,9 @@
 package com.mathcraft.timestampcamera
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
+import java.io.File
 
 class CameraFrameLogicTest {
     @Test
@@ -27,5 +29,11 @@ class CameraFrameLogicTest {
         assertEquals(1.5f, nextZoomRatio(1f, 1.5f, 1f, 4f), 0.0001f)
         assertEquals(1f, nextZoomRatio(1.2f, 0.5f, 1f, 4f), 0.0001f)
         assertEquals(4f, nextZoomRatio(3f, 2f, 1f, 4f), 0.0001f)
+    }
+
+    @Test
+    fun mainActivityIsNotLockedToPortrait() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        assertFalse(manifest.contains("android:screenOrientation=\"portrait\""))
     }
 }

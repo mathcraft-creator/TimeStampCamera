@@ -1,5 +1,6 @@
 package com.mathcraft.timestampcamera
 
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
@@ -17,9 +18,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,6 +48,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,8 +68,11 @@ fun CameraScreen(
     onChange: (StampConfig) -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val displayAspectRatio = frameAspectRatio(config.aspectRatio, isLandscape)
 
     val previewView = remember { PreviewView(context) }
     val imageCapture = remember { mutableStateOf<ImageCapture?>(null) }
@@ -87,7 +90,7 @@ fun CameraScreen(
     }
 
     // 카메라 바인딩
-    LaunchedEffect(previewView, lensFacing, config.aspectRatio) {
+    LaunchedEffect(previewView, lensFacing, config.aspectRatio, isLandscape) {
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             val cameraProvider = future.get()
@@ -217,14 +220,18 @@ fun CameraScreen(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        val (frameWidth, frameHeight) = if (maxWidth / maxHeight > displayAspectRatio) {
+            (maxHeight * displayAspectRatio) to maxHeight
+        } else {
+            maxWidth to (maxWidth / displayAspectRatio)
+        }
         // 테두리가 있으면 로고/각인 텍스트가 겹치지 않도록 안전 여백을 추가로 확보한다.
         // ImageStamper의 실제 각인 로직과 동일한 비율(BorderMetrics)을 사용해 결과물과 어긋나지 않게 한다.
-        val borderInset = maxWidth * BorderMetrics.contentInsetFraction(config.border, config.borderThickness)
+        val borderInset = frameWidth * BorderMetrics.contentInsetFraction(config.border, config.borderThickness)
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(config.aspectRatio.value)
+                .size(frameWidth, frameHeight)
                 .align(Alignment.Center)
         ) {
             AndroidView(
@@ -266,10 +273,8 @@ fun CameraScreen(
                     .padding((if (config.aspectRatio == StampAspectRatio.RATIO_1_1) 4.dp else 20.dp) + borderInset)
             )
             }
-        }
-
-        // 로고 미리보기
-        if (config.showLogo && config.logoPosition != LogoPosition.NONE) {
+            // 로고 미리보기
+            if (config.showLogo && config.logoPosition != LogoPosition.NONE) {
             val logoAlignment = when (config.logoPosition) {
                 LogoPosition.TOP_LEFT -> Alignment.TopStart
                 LogoPosition.TOP_RIGHT -> Alignment.TopEnd
@@ -322,6 +327,7 @@ fun CameraScreen(
                         .graphicsLayer(scaleX = -1f) // 좌우 반전
                         .offset(y = (-4).dp) // 아이콘을 위로 살짝 올림
                 )
+            }
             }
         }
 
