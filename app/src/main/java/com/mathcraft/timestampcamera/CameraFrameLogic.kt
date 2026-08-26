@@ -2,6 +2,21 @@ package com.mathcraft.timestampcamera
 
 const val ZOOM_BUTTON_FACTOR = 1.25f
 
+class LatestRequestGuard {
+    private var generation = 0L
+
+    @Synchronized
+    fun start(): Long = ++generation
+
+    @Synchronized
+    fun isCurrent(token: Long): Boolean = token == generation
+
+    @Synchronized
+    fun invalidate() {
+        generation++
+    }
+}
+
 fun frameAspectRatio(ratio: StampAspectRatio, isLandscape: Boolean): Float =
     if (isLandscape && ratio != StampAspectRatio.RATIO_1_1) {
         1f / ratio.value
@@ -19,3 +34,9 @@ fun nextZoomRatio(
     require(min <= max) { "min zoom must not exceed max zoom" }
     return (current * scaleFactor).coerceIn(min, max)
 }
+
+fun zoomRatioAfterFailure(
+    failedTarget: Float,
+    latestRequested: Float,
+    actualZoomRatio: Float
+): Float = if (failedTarget == latestRequested) actualZoomRatio else latestRequested

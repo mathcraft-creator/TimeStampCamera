@@ -55,4 +55,30 @@ class CameraFrameLogicTest {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse(manifest.contains("android:screenOrientation=\"portrait\""))
     }
+
+    @Test
+    fun cameraUseCasesReceiveTheCurrentDisplayRotation() {
+        val cameraScreen = File("src/main/java/com/mathcraft/timestampcamera/CameraScreen.kt").readText()
+        val call = Regex.escape(".setTargetRotation(displayRotation)").toRegex()
+        assertEquals(2, call.findAll(cameraScreen).count())
+    }
+
+    @Test
+    fun onlyTheLatestCameraBindRequestRemainsCurrent() {
+        val requests = LatestRequestGuard()
+        val first = requests.start()
+        val second = requests.start()
+
+        assertFalse(requests.isCurrent(first))
+        org.junit.Assert.assertTrue(requests.isCurrent(second))
+
+        requests.invalidate()
+        assertFalse(requests.isCurrent(second))
+    }
+
+    @Test
+    fun onlyTheLatestFailedZoomRequestRollsBackToActualZoom() {
+        assertEquals(1.4f, zoomRatioAfterFailure(2f, 2f, 1.4f), 0.0001f)
+        assertEquals(3f, zoomRatioAfterFailure(2f, 3f, 1.4f), 0.0001f)
+    }
 }

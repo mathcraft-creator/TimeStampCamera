@@ -1,6 +1,7 @@
 package com.mathcraft.timestampcamera
 
 import android.content.res.Configuration
+import android.view.Surface
 import android.widget.Toast
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,34 +78,63 @@ fun CameraScreen(
     val configuration = LocalConfiguration.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val displayRotation = LocalView.current.display?.rotation ?: Surface.ROTATION_0
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val displayAspectRatio = frameAspectRatio(config.aspectRatio, isLandscape)
 
     val previewView = remember { PreviewView(context) }
     val imageCapture = remember { mutableStateOf<ImageCapture?>(null) }
     val locationHelper = remember { LocationHelper(context) }
+    val bindRequests = remember { LatestRequestGuard() }
 
     var saving by remember { mutableStateOf(false) }
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
     var lensFacing by rememberSaveable { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var zoomRatio by remember { mutableStateOf(1f) }
     var minZoomRatio by remember { mutableStateOf(1f) }
     var maxZoomRatio by remember { mutableStateOf(1f) }
     var requestedZoomRatio by rememberSaveable { mutableStateOf(1f) }
 
+    fun requestZoom(camera: Camera, target: Float) {
+        requestedZoomRatio = target
+        val request = camera.cameraControl.setZoomRatio(target)
+        request.addListener({
+            try {
+                request.get()
+            } catch (_: Exception) {
+                if (camera !== boundCamera) return@addListener
+                val actual = camera.cameraInfo.zoomState.value?.zoomRatio ?: zoomRatio
+                requestedZoomRatio = zoomRatioAfterFailure(
+                    failedTarget = target,
+                    latestRequested = requestedZoomRatio,
+                    actualZoomRatio = actual
+                )
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
+
     // 위치 업데이트 시작/종료
     DisposableEffect(Unit) {
         locationHelper.start()
-        onDispose { locationHelper.stop() }
+        onDispose {
+            bindRequests.invalidate()
+            cameraProvider?.unbindAll()
+            boundCamera = null
+            locationHelper.stop()
+        }
     }
 
     // 카메라 바인딩
-    LaunchedEffect(previewView, lensFacing, config.aspectRatio, isLandscape) {
+    LaunchedEffect(previewView, lensFacing, config.aspectRatio, displayRotation) {
+        val requestToken = bindRequests.start()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
-            val cameraProvider = future.get()
+            if (!bindRequests.isCurrent(requestToken)) return@addListener
+            val provider = future.get()
+            cameraProvider = provider
             
             val cameraAspectRatio = when (config.aspectRatio) {
                 StampAspectRatio.RATIO_9_16 -> AspectRatio.RATIO_16_9
@@ -112,6 +143,7 @@ fun CameraScreen(
 
             val preview = Preview.Builder()
                 .setTargetAspectRatio(cameraAspectRatio)
+                .setTargetRotation(displayRotation)
                 .build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
@@ -119,6 +151,7 @@ fun CameraScreen(
             val capture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .setTargetAspectRatio(cameraAspectRatio)
+                .setTargetRotation(displayRotation)
                 .build()
             
             imageCapture.value = capture
@@ -128,12 +161,12 @@ fun CameraScreen(
                 else -> CameraSelector.DEFAULT_BACK_CAMERA
             }
             try {
-                if (!cameraProvider.hasCamera(selectedCamera)) {
+                if (!provider.hasCamera(selectedCamera)) {
                     Toast.makeText(context, "해당 카메라를 사용할 수 없습니다.", Toast.LENGTH_SHORT).show()
                     return@addListener
                 }
-                cameraProvider.unbindAll()
-                val camera = cameraProvider.bindToLifecycle(
+                provider.unbindAll()
+                val camera = provider.bindToLifecycle(
                     lifecycleOwner,
                     selectedCamera,
                     preview,
@@ -146,7 +179,7 @@ fun CameraScreen(
                     maxZoomRatio = zoomState.maxZoomRatio
                     zoomRatio = zoomState.zoomRatio
                     requestedZoomRatio = requestedZoomRatio.coerceIn(minZoomRatio, maxZoomRatio)
-                    camera.cameraControl.setZoomRatio(requestedZoomRatio)
+                    requestZoom(camera, requestedZoomRatio)
                 }
             } catch (e: Exception) {
                 // 바인딩 실패 무시 (로그만)
@@ -257,8 +290,7 @@ fun CameraScreen(
             min = minZoomRatio,
             max = maxZoomRatio
         )
-        requestedZoomRatio = target
-        camera.cameraControl.setZoomRatio(target)
+        requestZoom(camera, target)
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
