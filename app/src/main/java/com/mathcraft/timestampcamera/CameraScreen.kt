@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,12 +86,12 @@ fun CameraScreen(
     var saving by remember { mutableStateOf(false) }
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
-    var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
+    var lensFacing by rememberSaveable { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
     var zoomRatio by remember { mutableStateOf(1f) }
     var minZoomRatio by remember { mutableStateOf(1f) }
     var maxZoomRatio by remember { mutableStateOf(1f) }
-    var requestedZoomRatio by remember { mutableStateOf(1f) }
+    var requestedZoomRatio by rememberSaveable { mutableStateOf(1f) }
 
     // 위치 업데이트 시작/종료
     DisposableEffect(Unit) {
@@ -386,6 +387,11 @@ fun CameraScreen(
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable {
+                    requestedZoomRatio = 1f
+                    zoomRatio = 1f
+                    minZoomRatio = 1f
+                    maxZoomRatio = 1f
+                    boundCamera = null
                     lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                         CameraSelector.LENS_FACING_BACK
                     } else {
@@ -433,6 +439,32 @@ fun CameraScreen(
             Icon(Icons.Filled.Settings, contentDescription = "설정")
         }
 
+        // 줌 축소/확대 버튼과 CameraX가 보고한 실제 배율
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 118.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ZoomButton(
+                label = "−",
+                enabled = zoomRatio > minZoomRatio + 0.001f,
+                onClick = { applyZoomScale(1f / ZOOM_BUTTON_FACTOR) }
+            )
+            Text(
+                text = String.format(java.util.Locale.US, "%.1f×", zoomRatio),
+                color = Color.White,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            ZoomButton(
+                label = "+",
+                enabled = zoomRatio < maxZoomRatio - 0.001f,
+                onClick = { applyZoomScale(ZOOM_BUTTON_FACTOR) }
+            )
+        }
+
         // 촬영 버튼
         Box(
             modifier = Modifier
@@ -455,6 +487,29 @@ fun CameraScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ZoomButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (enabled) 0.95f else 0.4f))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color.Black.copy(alpha = if (enabled) 1f else 0.45f),
+            fontSize = 24.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

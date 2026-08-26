@@ -1,5 +1,7 @@
 package com.mathcraft.timestampcamera
 
+const val ZOOM_BUTTON_FACTOR = 1.25f
+
 fun frameAspectRatio(ratio: StampAspectRatio, isLandscape: Boolean): Float =
     if (isLandscape && ratio != StampAspectRatio.RATIO_1_1) {
         1f / ratio.value

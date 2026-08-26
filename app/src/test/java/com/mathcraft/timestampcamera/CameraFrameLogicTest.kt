@@ -43,6 +43,14 @@ class CameraFrameLogicTest {
     }
 
     @Test
+    fun zoomButtonsUseSymmetricMultiplicativeSteps() {
+        val increased = nextZoomRatio(2f, ZOOM_BUTTON_FACTOR, 1f, 8f)
+        val decreased = nextZoomRatio(increased, 1f / ZOOM_BUTTON_FACTOR, 1f, 8f)
+        assertEquals(2.5f, increased, 0.0001f)
+        assertEquals(2f, decreased, 0.0001f)
+    }
+
+    @Test
     fun mainActivityIsNotLockedToPortrait() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse(manifest.contains("android:screenOrientation=\"portrait\""))
