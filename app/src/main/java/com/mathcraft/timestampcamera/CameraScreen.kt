@@ -3,6 +3,7 @@ package com.mathcraft.timestampcamera
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -13,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,12 +51,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Observer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,6 +86,11 @@ fun CameraScreen(
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
+    var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var zoomRatio by remember { mutableStateOf(1f) }
+    var minZoomRatio by remember { mutableStateOf(1f) }
+    var maxZoomRatio by remember { mutableStateOf(1f) }
+    var requestedZoomRatio by remember { mutableStateOf(1f) }
 
     // 위치 업데이트 시작/종료
     DisposableEffect(Unit) {
@@ -123,16 +132,36 @@ fun CameraScreen(
                     return@addListener
                 }
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     selectedCamera,
                     preview,
                     capture
                 )
+                boundCamera = camera
+                val zoomState = camera.cameraInfo.zoomState.value
+                if (zoomState != null) {
+                    minZoomRatio = zoomState.minZoomRatio
+                    maxZoomRatio = zoomState.maxZoomRatio
+                    zoomRatio = zoomState.zoomRatio
+                    requestedZoomRatio = requestedZoomRatio.coerceIn(minZoomRatio, maxZoomRatio)
+                    camera.cameraControl.setZoomRatio(requestedZoomRatio)
+                }
             } catch (e: Exception) {
                 // 바인딩 실패 무시 (로그만)
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    DisposableEffect(boundCamera, lifecycleOwner) {
+        val zoomState = boundCamera?.cameraInfo?.zoomState
+        val observer = Observer<androidx.camera.core.ZoomState> { state ->
+            minZoomRatio = state.minZoomRatio
+            maxZoomRatio = state.maxZoomRatio
+            zoomRatio = state.zoomRatio
+        }
+        zoomState?.observe(lifecycleOwner, observer)
+        onDispose { zoomState?.removeObserver(observer) }
     }
 
     // 미리보기 각인 문구를 1초마다 갱신
@@ -219,6 +248,18 @@ fun CameraScreen(
         )
     }
 
+    fun applyZoomScale(scaleFactor: Float) {
+        val camera = boundCamera ?: return
+        val target = nextZoomRatio(
+            current = requestedZoomRatio,
+            scaleFactor = scaleFactor,
+            min = minZoomRatio,
+            max = maxZoomRatio
+        )
+        requestedZoomRatio = target
+        camera.cameraControl.setZoomRatio(target)
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         val (frameWidth, frameHeight) = if (maxWidth / maxHeight > displayAspectRatio) {
             (maxHeight * displayAspectRatio) to maxHeight
@@ -233,6 +274,11 @@ fun CameraScreen(
             modifier = Modifier
                 .size(frameWidth, frameHeight)
                 .align(Alignment.Center)
+                .pointerInput(boundCamera, minZoomRatio, maxZoomRatio) {
+                    detectTransformGestures { _, _, gestureZoom, _ ->
+                        applyZoomScale(gestureZoom)
+                    }
+                }
         ) {
             AndroidView(
                 factory = { previewView },

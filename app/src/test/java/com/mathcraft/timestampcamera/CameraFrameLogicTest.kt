@@ -29,6 +29,17 @@ class CameraFrameLogicTest {
         assertEquals(1.5f, nextZoomRatio(1f, 1.5f, 1f, 4f), 0.0001f)
         assertEquals(1f, nextZoomRatio(1.2f, 0.5f, 1f, 4f), 0.0001f)
         assertEquals(4f, nextZoomRatio(3f, 2f, 1f, 4f), 0.0001f)
+        assertEquals(2f, nextZoomRatio(2f, 1f, 1f, 4f), 0.0001f)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun zoomRejectsAnInvertedCameraRange() {
+        nextZoomRatio(1f, 2f, 4f, 1f)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun zoomRejectsANonPositiveScaleFactor() {
+        nextZoomRatio(2f, 0f, 1f, 4f)
     }
 
     @Test

@@ -12,4 +12,8 @@ fun nextZoomRatio(
     scaleFactor: Float,
     min: Float,
     max: Float
-): Float = (current * scaleFactor).coerceIn(min, max)
+): Float {
+    require(scaleFactor > 0f) { "zoom scale factor must be positive" }
+    require(min <= max) { "min zoom must not exceed max zoom" }
+    return (current * scaleFactor).coerceIn(min, max)
+}
