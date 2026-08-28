@@ -78,6 +78,7 @@ fun CameraScreen(
     val locationHelper = remember { LocationHelper(context) }
 
     var saving by remember { mutableStateOf(false) }
+    var filterPanelExpanded by remember { mutableStateOf(false) }
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
@@ -282,6 +283,14 @@ fun CameraScreen(
             }
         }
 
+        if (filterPanelExpanded) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clickable { filterPanelExpanded = false }
+            )
+        }
+
         // 로고 미리보기
         if (config.showLogo && config.logoPosition != LogoPosition.NONE) {
             val logoAlignment = when (config.logoPosition) {
@@ -394,6 +403,21 @@ fun CameraScreen(
         ) {
             Icon(Icons.Filled.Settings, contentDescription = "설정")
         }
+
+        PhotoFilterControls(
+            selected = config.photoFilter,
+            intensity = config.photoFilterIntensity,
+            expanded = filterPanelExpanded,
+            onToggleExpanded = { filterPanelExpanded = !filterPanelExpanded },
+            onSelect = { preset -> onChange(config.copy(photoFilter = preset)) },
+            onIntensityChange = { value ->
+                onChange(config.copy(photoFilterIntensity = value.coerceIn(0, 100)))
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, bottom = 112.dp)
+        )
 
         // 촬영 버튼
         Box(
