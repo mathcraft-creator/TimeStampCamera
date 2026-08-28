@@ -71,7 +71,9 @@ fun CameraScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    val previewView = remember { PreviewView(context) }
+    val previewView = remember {
+        PreviewView(context).also(PreviewFilterApplier::prepare)
+    }
     val imageCapture = remember { mutableStateOf<ImageCapture?>(null) }
     val locationHelper = remember { LocationHelper(context) }
 
@@ -130,6 +132,18 @@ fun CameraScreen(
                 // 바인딩 실패 무시 (로그만)
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    LaunchedEffect(previewView, config.photoFilter, config.photoFilterIntensity) {
+        PreviewFilterApplier.update(
+            previewView = previewView,
+            preset = config.photoFilter,
+            intensity = config.photoFilterIntensity
+        )
+    }
+
+    DisposableEffect(previewView) {
+        onDispose { PreviewFilterApplier.clear(previewView) }
     }
 
     // 미리보기 각인 문구를 1초마다 갱신
