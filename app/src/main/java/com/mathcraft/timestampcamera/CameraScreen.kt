@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,7 +79,7 @@ fun CameraScreen(
     val locationHelper = remember { LocationHelper(context) }
 
     var saving by remember { mutableStateOf(false) }
-    var filterPanelExpanded by remember { mutableStateOf(false) }
+    var filterPanelExpanded by rememberSaveable { mutableStateOf(false) }
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }

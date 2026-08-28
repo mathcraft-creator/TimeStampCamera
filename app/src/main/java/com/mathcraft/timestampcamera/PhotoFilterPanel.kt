@@ -26,7 +26,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,44 +56,56 @@ fun PhotoFilterControls(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (expanded) {
-            Column(
+            Box(
                 Modifier
                     .fillMaxWidth()
                     .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
-                    .padding(vertical = 12.dp)
             ) {
-                Row(
+                Box(
                     Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("강도", color = Color.White, fontSize = 12.sp)
-                    Slider(
-                        value = intensity.toFloat(),
-                        onValueChange = { onIntensityChange(it.roundToInt()) },
-                        enabled = selected != PhotoFilterPreset.ORIGINAL,
-                        valueRange = 0f..100f,
-                        steps = 99,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
-                    )
-                    Text("$intensity", color = Color.White, fontSize = 12.sp)
-                }
-                Row(
-                    Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PhotoFilterPreset.entries.forEach { preset ->
-                        FilterThumbnail(
-                            preset = preset,
-                            selected = preset == selected,
-                            intensity = if (preset == PhotoFilterPreset.ORIGINAL) 0 else intensity,
-                            onClick = { onSelect(preset) }
+                        .matchParentSize()
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent().changes.forEach { it.consume() }
+                                }
+                            }
+                        }
+                )
+                Column(Modifier.padding(vertical = 12.dp)) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("강도", color = Color.White, fontSize = 12.sp)
+                        Slider(
+                            value = intensity.toFloat(),
+                            onValueChange = { onIntensityChange(it.roundToInt()) },
+                            enabled = selected != PhotoFilterPreset.ORIGINAL,
+                            valueRange = 0f..100f,
+                            steps = 99,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
                         )
+                        Text("$intensity", color = Color.White, fontSize = 12.sp)
+                    }
+                    Row(
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        PhotoFilterPreset.entries.forEach { preset ->
+                            FilterThumbnail(
+                                preset = preset,
+                                selected = preset == selected,
+                                intensity = if (preset == PhotoFilterPreset.ORIGINAL) 0 else intensity,
+                                onClick = { onSelect(preset) }
+                            )
+                        }
                     }
                 }
             }
@@ -101,7 +119,11 @@ fun PhotoFilterControls(
                     if (selected == PhotoFilterPreset.ORIGINAL) Color.White.copy(alpha = 0.85f)
                     else AccentPink
                 )
-                .clickable(onClick = onToggleExpanded),
+                .clickable(role = Role.Button, onClick = onToggleExpanded)
+                .semantics {
+                    contentDescription = "필터"
+                    stateDescription = if (expanded) "열림" else "닫힘"
+                },
             contentAlignment = Alignment.Center
         ) {
             Text("🎨필터", color = Color.Black, fontSize = 11.sp, textAlign = TextAlign.Center)
@@ -118,12 +140,17 @@ private fun FilterThumbnail(
 ) {
     val matrix = PhotoFilter.matrix(preset, intensity).array
     Column(
-        Modifier.clickable(onClick = onClick),
+        Modifier
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = "${preset.label} 필터"
+                this.selected = selected
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
             painter = painterResource(R.drawable.filter_thumbnail_sample),
-            contentDescription = "${preset.label} 필터",
+            contentDescription = null,
             colorFilter = ColorFilter.colorMatrix(ColorMatrix(matrix)),
             modifier = Modifier
                 .size(58.dp)
