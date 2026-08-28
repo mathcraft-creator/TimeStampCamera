@@ -177,6 +177,7 @@ fun CameraScreen(
     fun takePhoto() {
         val capture = imageCapture.value ?: return
         if (saving) return
+        val captureConfig = config
         saving = true
         capture.takePicture(
             ContextCompat.getMainExecutor(context),
@@ -188,26 +189,38 @@ fun CameraScreen(
                                 var bmp = imageProxyToBitmap(image)
 
                                 // 1:1 비율이면 크롭
-                                if (config.aspectRatio == StampAspectRatio.RATIO_1_1) {
+                                if (captureConfig.aspectRatio == StampAspectRatio.RATIO_1_1) {
                                     bmp = cropToSquare(bmp)
                                 }
 
                                 // 뷰티 필터(잡티 보정/화사함) 적용 — 각인/테두리보다 먼저 적용해
                                 // 텍스트나 로고는 필터 영향을 받지 않게 한다.
-                                if (config.beautyEnabled) {
-                                    val filtered = BeautyFilter.apply(bmp, config.beautySmooth, config.beautyBrighten)
+                                if (captureConfig.beautyEnabled) {
+                                    val filtered = BeautyFilter.apply(
+                                        bmp,
+                                        captureConfig.beautySmooth,
+                                        captureConfig.beautyBrighten
+                                    )
                                     if (filtered !== bmp) bmp.recycle()
                                     bmp = filtered
                                 }
 
-                                val loc = if (config.showGps || config.showAddress) {
+                                val colorFiltered = PhotoFilter.applyOrOriginal(
+                                    bmp,
+                                    captureConfig.photoFilter,
+                                    captureConfig.photoFilterIntensity
+                                )
+                                if (colorFiltered !== bmp) bmp.recycle()
+                                bmp = colorFiltered
+
+                                val loc = if (captureConfig.showGps || captureConfig.showAddress) {
                                     locationHelper.current()
                                 } else null
-                                val address = if (config.showAddress && loc != null) {
+                                val address = if (captureConfig.showAddress && loc != null) {
                                     locationHelper.addressOf(loc)
                                 } else null
-                                val lines = ImageStamper.buildLines(config, Date(), loc, address)
-                                val stamped = ImageStamper.stamp(context, bmp, config, lines)
+                                val lines = ImageStamper.buildLines(captureConfig, Date(), loc, address)
+                                val stamped = ImageStamper.stamp(context, bmp, captureConfig, lines)
                                 saveBitmapToGallery(context, stamped)
                             } catch (e: Exception) {
                                 null
