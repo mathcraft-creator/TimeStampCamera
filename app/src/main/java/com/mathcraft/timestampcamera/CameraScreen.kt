@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -362,52 +364,6 @@ fun CameraScreen(
             }
         }
 
-        // 카메라 전환 버튼
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .clickable {
-                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
-                        CameraSelector.LENS_FACING_BACK
-                    } else {
-                        CameraSelector.LENS_FACING_FRONT
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "전환",
-                color = Color.Black,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 6.dp)
-            )
-        }
-
-        // 뷰티 필터 빠른 전환 버튼 (전환 버튼 바로 아래)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 82.dp, start = 16.dp)
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(if (config.beautyEnabled) Color(0xFFFF80AB) else Color.White.copy(alpha = 0.85f))
-                .clickable { onChange(config.copy(beautyEnabled = !config.beautyEnabled)) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "✨뷰티",
-                color = Color.Black,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-        }
-
         // 설정 버튼
         FloatingActionButton(
             onClick = onOpenSettings,
@@ -418,19 +374,54 @@ fun CameraScreen(
             Icon(Icons.Filled.Settings, contentDescription = "설정")
         }
 
-        PhotoFilterControls(
-            selected = config.photoFilter,
-            intensity = config.photoFilterIntensity,
-            expanded = filterPanelExpanded,
-            onToggleExpanded = { filterPanelExpanded = !filterPanelExpanded },
-            onSelect = { preset -> onChange(config.copy(photoFilter = preset)) },
-            onIntensityChange = { value ->
-                onChange(config.copy(photoFilterIntensity = value.coerceIn(0, 100)))
+        if (filterPanelExpanded) {
+            PhotoFilterPanel(
+                selected = config.photoFilter,
+                intensity = config.photoFilterIntensity,
+                onSelect = { preset -> onChange(config.copy(photoFilter = preset)) },
+                onIntensityChange = { value ->
+                    onChange(config.copy(photoFilterIntensity = value.coerceIn(0, 100)))
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 12.dp, end = 12.dp, bottom = 118.dp)
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(x = (-91).dp)
+                .padding(bottom = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CameraCircleButton(
+                text = "✨뷰티",
+                active = config.beautyEnabled,
+                onClick = { onChange(config.copy(beautyEnabled = !config.beautyEnabled)) }
+            )
+            PhotoFilterButton(
+                selected = config.photoFilter,
+                expanded = filterPanelExpanded,
+                onClick = { filterPanelExpanded = !filterPanelExpanded }
+            )
+        }
+
+        CameraCircleButton(
+            text = "전환",
+            active = false,
+            onClick = {
+                lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                    CameraSelector.LENS_FACING_BACK
+                } else {
+                    CameraSelector.LENS_FACING_FRONT
+                }
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 112.dp)
+                .offset(x = 70.dp)
+                .padding(bottom = 40.dp)
         )
 
         // 촬영 버튼
@@ -455,6 +446,31 @@ fun CameraScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CameraCircleButton(
+    text: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .size(54.dp)
+            .clip(CircleShape)
+            .background(if (active) Color(0xFFFF80AB) else Color.White.copy(alpha = 0.85f))
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = Color.Black,
+            fontSize = if (text == "전환") 12.sp else 11.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
     }
 }
 

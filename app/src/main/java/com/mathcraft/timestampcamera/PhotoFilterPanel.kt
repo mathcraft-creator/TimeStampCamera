@@ -5,13 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -20,13 +19,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -42,92 +41,87 @@ import kotlin.math.roundToInt
 private val AccentPink = Color(0xFFFF80AB)
 
 @Composable
-fun PhotoFilterControls(
+fun PhotoFilterPanel(
     selected: PhotoFilterPreset,
     intensity: Int,
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
     onSelect: (PhotoFilterPreset) -> Unit,
     onIntensityChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
     ) {
-        if (expanded) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
-            ) {
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .pointerInput(Unit) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    awaitPointerEvent().changes.forEach { it.consume() }
-                                }
-                            }
-                        }
-                )
-                Column(Modifier.padding(vertical = 12.dp)) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("강도", color = Color.White, fontSize = 12.sp)
-                        Slider(
-                            value = intensity.toFloat(),
-                            onValueChange = { onIntensityChange(it.roundToInt()) },
-                            enabled = selected != PhotoFilterPreset.ORIGINAL,
-                            valueRange = 0f..100f,
-                            steps = 99,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                        )
-                        Text("$intensity", color = Color.White, fontSize = 12.sp)
-                    }
-                    Row(
-                        Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        PhotoFilterPreset.entries.forEach { preset ->
-                            FilterThumbnail(
-                                preset = preset,
-                                selected = preset == selected,
-                                intensity = if (preset == PhotoFilterPreset.ORIGINAL) 0 else intensity,
-                                onClick = { onSelect(preset) }
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-        }
         Box(
             Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(
-                    if (selected == PhotoFilterPreset.ORIGINAL) Color.White.copy(alpha = 0.85f)
-                    else AccentPink
+                .matchParentSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
                 )
-                .clickable(role = Role.Button, onClick = onToggleExpanded)
-                .semantics {
-                    contentDescription = "필터"
-                    stateDescription = if (expanded) "열림" else "닫힘"
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Text("🎨필터", color = Color.Black, fontSize = 11.sp, textAlign = TextAlign.Center)
+        )
+        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("강도", color = Color.White, fontSize = 12.sp)
+                Slider(
+                    value = intensity.toFloat(),
+                    onValueChange = { onIntensityChange(it.roundToInt()) },
+                    enabled = selected != PhotoFilterPreset.ORIGINAL,
+                    valueRange = 0f..100f,
+                    steps = 99,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                )
+                Text("$intensity", color = Color.White, fontSize = 12.sp)
+            }
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PhotoFilterPreset.entries.forEach { preset ->
+                    FilterThumbnail(
+                        preset = preset,
+                        selected = preset == selected,
+                        intensity = if (preset == PhotoFilterPreset.ORIGINAL) 0 else intensity,
+                        onClick = { onSelect(preset) }
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+fun PhotoFilterButton(
+    selected: PhotoFilterPreset,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .size(54.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected == PhotoFilterPreset.ORIGINAL) Color.White.copy(alpha = 0.85f)
+                else AccentPink
+            )
+            .clickable(
+                role = Role.Button,
+                onClickLabel = if (expanded) "필터 닫기" else "필터 열기",
+                onClick = onClick
+            )
+            .semantics {
+                contentDescription = "필터"
+                stateDescription = if (expanded) "열림" else "닫힘"
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text("🎨필터", color = Color.Black, fontSize = 11.sp, textAlign = TextAlign.Center)
     }
 }
 
