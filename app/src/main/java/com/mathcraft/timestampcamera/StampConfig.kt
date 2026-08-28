@@ -168,7 +168,9 @@ data class StampConfig(
     val borderThickness: Int = 18,
     val beautyEnabled: Boolean = false,
     val beautySmooth: Int = 50,
-    val beautyBrighten: Int = 40
+    val beautyBrighten: Int = 40,
+    val photoFilter: PhotoFilterPreset = PhotoFilterPreset.ORIGINAL,
+    val photoFilterIntensity: Int = 100
 )
 
 /** SharedPreferences 로 설정을 저장/복원한다. */
@@ -198,7 +200,9 @@ class SettingsRepository(context: Context) {
         borderThickness = prefs.getInt(KEY_BORDER_THICKNESS, 18),
         beautyEnabled = prefs.getBoolean(KEY_BEAUTY_ENABLED, false),
         beautySmooth = prefs.getInt(KEY_BEAUTY_SMOOTH, 50),
-        beautyBrighten = prefs.getInt(KEY_BEAUTY_BRIGHTEN, 40)
+        beautyBrighten = prefs.getInt(KEY_BEAUTY_BRIGHTEN, 40),
+        photoFilter = PhotoFilterPreset.fromId(prefs.getString(KEY_PHOTO_FILTER_ID, null)),
+        photoFilterIntensity = prefs.getInt(KEY_PHOTO_FILTER_INTENSITY, 100).coerceIn(0, 100)
     )
 
     fun save(c: StampConfig) {
@@ -224,6 +228,8 @@ class SettingsRepository(context: Context) {
             .putBoolean(KEY_BEAUTY_ENABLED, c.beautyEnabled)
             .putInt(KEY_BEAUTY_SMOOTH, c.beautySmooth)
             .putInt(KEY_BEAUTY_BRIGHTEN, c.beautyBrighten)
+            .putString(KEY_PHOTO_FILTER_ID, c.photoFilter.id)
+            .putInt(KEY_PHOTO_FILTER_INTENSITY, c.photoFilterIntensity.coerceIn(0, 100))
             .apply()
     }
 
@@ -256,5 +262,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_BEAUTY_ENABLED = "beautyEnabled"
         private const val KEY_BEAUTY_SMOOTH = "beautySmooth"
         private const val KEY_BEAUTY_BRIGHTEN = "beautyBrighten"
+        private const val KEY_PHOTO_FILTER_ID = "photoFilterId"
+        private const val KEY_PHOTO_FILTER_INTENSITY = "photoFilterIntensity"
     }
 }
