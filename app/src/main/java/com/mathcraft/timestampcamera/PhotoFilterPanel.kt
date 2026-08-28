@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -61,6 +62,7 @@ fun PhotoFilterPanel(
                     indication = null,
                     onClick = {}
                 )
+                .clearAndSetSemantics { }
         )
         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             Row(
