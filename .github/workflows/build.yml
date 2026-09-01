@@ -3,13 +3,19 @@ name: Build APK
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -90,3 +96,21 @@ jobs:
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 7
+
+      # 폰에서 로그인 없이 바로 받을 수 있도록, 최신 디버그 APK를 고정 태그(debug) 릴리스로 발행한다.
+      # 매 빌드마다 같은 태그를 최신 커밋으로 옮겨 재발행 → releases 페이지 맨 위 항목이 항상 최신.
+      # 포크에서 온 PR은 토큰에 쓰기 권한이 없으므로 건너뛴다.
+      - name: Publish debug APK to rolling release
+        if: github.event.pull_request.head.repo.fork != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARGET="${{ github.event.pull_request.head.sha || github.sha }}"
+          gh release delete debug --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create debug \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET" \
+            --title "최신 디버그 빌드 (자동)" \
+            --notes "브랜치 \`${{ github.head_ref || github.ref_name }}\` / 커밋 \`${TARGET}\` 에서 자동 빌드된 디버그 APK. 설치 전용이며 Play 스토어 서명이 아닙니다. 폰에서 아래 app-debug.apk 를 눌러 설치하세요." \
+            --prerelease \
+            app/build/outputs/apk/debug/app-debug.apk
