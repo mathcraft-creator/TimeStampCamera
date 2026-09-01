@@ -170,7 +170,11 @@ data class StampConfig(
     val beautySmooth: Int = 50,
     val beautyBrighten: Int = 40,
     val photoFilter: PhotoFilterPreset = PhotoFilterPreset.ORIGINAL,
-    val photoFilterIntensity: Int = 100
+    val photoFilterIntensity: Int = 100,
+    /** 볼륨 버튼·블루투스 셔터 리모컨으로 촬영 */
+    val remoteShutterEnabled: Boolean = false,
+    /** 갤럭시 S펜 버튼으로 촬영 */
+    val spenRemoteEnabled: Boolean = false
 )
 
 /** SharedPreferences 로 설정을 저장/복원한다. */
@@ -202,7 +206,9 @@ class SettingsRepository(context: Context) {
         beautySmooth = prefs.getInt(KEY_BEAUTY_SMOOTH, 50),
         beautyBrighten = prefs.getInt(KEY_BEAUTY_BRIGHTEN, 40),
         photoFilter = PhotoFilterPreset.fromId(prefs.getString(KEY_PHOTO_FILTER_ID, null)),
-        photoFilterIntensity = prefs.getInt(KEY_PHOTO_FILTER_INTENSITY, 100).coerceIn(0, 100)
+        photoFilterIntensity = prefs.getInt(KEY_PHOTO_FILTER_INTENSITY, 100).coerceIn(0, 100),
+        remoteShutterEnabled = prefs.getBoolean(KEY_REMOTE_SHUTTER, false),
+        spenRemoteEnabled = prefs.getBoolean(KEY_SPEN_REMOTE, false)
     )
 
     fun save(c: StampConfig) {
@@ -230,6 +236,8 @@ class SettingsRepository(context: Context) {
             .putInt(KEY_BEAUTY_BRIGHTEN, c.beautyBrighten)
             .putString(KEY_PHOTO_FILTER_ID, c.photoFilter.id)
             .putInt(KEY_PHOTO_FILTER_INTENSITY, c.photoFilterIntensity.coerceIn(0, 100))
+            .putBoolean(KEY_REMOTE_SHUTTER, c.remoteShutterEnabled)
+            .putBoolean(KEY_SPEN_REMOTE, c.spenRemoteEnabled)
             .apply()
     }
 
@@ -264,5 +272,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_BEAUTY_BRIGHTEN = "beautyBrighten"
         private const val KEY_PHOTO_FILTER_ID = "photoFilterId"
         private const val KEY_PHOTO_FILTER_INTENSITY = "photoFilterIntensity"
+        private const val KEY_REMOTE_SHUTTER = "remoteShutterEnabled"
+        private const val KEY_SPEN_REMOTE = "spenRemoteEnabled"
     }
 }

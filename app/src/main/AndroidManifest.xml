@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 갤럭시 S펜(에어 액션) 리모컨: Pen Remote SDK 가 이 프레임워크 존재 여부를 조회함 -->
+    <queries>
+        <package android:name="com.samsung.android.service.aircommand" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

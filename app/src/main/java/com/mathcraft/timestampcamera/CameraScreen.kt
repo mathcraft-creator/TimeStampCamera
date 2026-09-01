@@ -247,6 +247,26 @@ fun CameraScreen(
         )
     }
 
+    // 원격(리모컨) 촬영 연결.
+    // - 볼륨 / 블루투스 셔터 리모컨: MainActivity.dispatchKeyEvent 가 RemoteShutterBus 로 전달
+    // - 갤럭시 S펜 버튼: SpenRemoteController(리플렉션) 가 RemoteShutterBus 로 전달
+    // 카메라 화면이 사라지면(설정 화면 등) onDispose 로 해제되어 볼륨 키가 정상 동작한다.
+    val spenController = remember { SpenRemoteController(context) }
+    DisposableEffect(config.remoteShutterEnabled, config.spenRemoteEnabled) {
+        val anyRemote = config.remoteShutterEnabled || config.spenRemoteEnabled
+        RemoteShutterBus.onTrigger = if (anyRemote) ({ takePhoto() }) else null
+        // S펜 버튼도 상당수 기기에서 볼륨 키로 들어오므로, 두 설정 중 하나라도 켜지면 키를 가로챈다.
+        RemoteShutterBus.keyEventsEnabled = anyRemote
+
+        if (config.spenRemoteEnabled) spenController.connect() else spenController.disconnect()
+
+        onDispose {
+            RemoteShutterBus.onTrigger = null
+            RemoteShutterBus.keyEventsEnabled = false
+            spenController.disconnect()
+        }
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // 테두리가 있으면 로고/각인 텍스트가 겹치지 않도록 안전 여백을 추가로 확보한다.
         // ImageStamper의 실제 각인 로직과 동일한 비율(BorderMetrics)을 사용해 결과물과 어긋나지 않게 한다.

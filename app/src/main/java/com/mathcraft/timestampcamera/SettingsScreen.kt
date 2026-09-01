@@ -125,6 +125,31 @@ fun SettingsScreen(
             }
         }
 
+        // 2-1) 리모컨 (원격 촬영)
+        ExpandableSection("리모컨 (원격 촬영)", expandedSection == "remote", onToggle = { toggle("remote") }) {
+            ToggleRow("볼륨 · 블루투스 리모컨", config.remoteShutterEnabled) {
+                onChange(config.copy(remoteShutterEnabled = it))
+            }
+            Text(
+                "블루투스 셔터 리모컨(AB Shutter 등)이나 볼륨 버튼으로 촬영해요. 카메라 화면에서만 동작하며, 켜면 카메라 화면 안에서는 볼륨 조절 대신 촬영이 됩니다.",
+                color = Color(0xFFAAAAAA),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+
+            ToggleRow("갤럭시 S펜 버튼", config.spenRemoteEnabled) {
+                onChange(config.copy(spenRemoteEnabled = it))
+            }
+            Text(
+                "S펜 버튼을 누르면 촬영해요. 에어 액션을 지원하는 갤럭시 노트 · S 울트라 등에서 동작하며, " +
+                    "기기 특성상 S펜 버튼이 볼륨 신호로 들어오는 경우가 많아 이 옵션을 켜면 카메라 화면에서 " +
+                    "볼륨 버튼도 촬영으로 동작합니다.",
+                color = Color(0xFFAAAAAA),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+        }
+
         // 3) 사진 비율
         ExpandableSection("사진 비율", expandedSection == "ratio", onToggle = { toggle("ratio") }) {
             ChipRow {

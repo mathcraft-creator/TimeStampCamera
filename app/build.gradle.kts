@@ -88,4 +88,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.test:core:1.6.1")
+
+    // 삼성 S펜 Pen Remote SDK (app/libs/spenremote-*.jar, sdk-*.jar).
+    // 없어도 빌드되며, SpenRemoteController 가 리플렉션으로 존재 여부를 확인한다.
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
 }

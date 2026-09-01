@@ -3,6 +3,7 @@ package com.mathcraft.timestampcamera
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -39,6 +40,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * 볼륨 키 / 블루투스 셔터 리모컨(대부분 볼륨 키를 보냄) 입력을 촬영으로 연결한다.
+     * 카메라 화면이 떠 있고 "볼륨·블루투스 리모컨" 설정이 켜진 경우에만 가로챈다.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (RemoteShutterBus.keyEventsEnabled && RemoteShutterBus.onTrigger != null &&
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+                event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)
+        ) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                RemoteShutterBus.trigger()
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 }
 
