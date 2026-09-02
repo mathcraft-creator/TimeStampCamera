@@ -1,7 +1,10 @@
 package com.mathcraft.timestampcamera
 
+import android.content.res.Configuration
+import android.view.Surface
 import android.widget.Toast
 import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -12,15 +15,14 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,8 +39,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +52,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Observer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -71,32 +77,69 @@ fun CameraScreen(
     onChange: (StampConfig) -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val displayRotation = LocalView.current.display?.rotation ?: Surface.ROTATION_0
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val displayAspectRatio = frameAspectRatio(config.aspectRatio, isLandscape)
 
     val previewView = remember {
         PreviewView(context).also(PreviewFilterApplier::prepare)
     }
     val imageCapture = remember { mutableStateOf<ImageCapture?>(null) }
     val locationHelper = remember { LocationHelper(context) }
+    val bindRequests = remember { LatestRequestGuard() }
 
     var saving by remember { mutableStateOf(false) }
     var filterPanelExpanded by rememberSaveable { mutableStateOf(false) }
     var previewText by remember { mutableStateOf("") }
     var cachedAddress by remember { mutableStateOf<String?>(null) }
-    var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
+    var lensFacing by rememberSaveable { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
+    var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var zoomRatio by remember { mutableStateOf(1f) }
+    var minZoomRatio by remember { mutableStateOf(1f) }
+    var maxZoomRatio by remember { mutableStateOf(1f) }
+    var requestedZoomRatio by rememberSaveable { mutableStateOf(1f) }
+
+    fun requestZoom(camera: Camera, target: Float) {
+        requestedZoomRatio = target
+        val request = camera.cameraControl.setZoomRatio(target)
+        request.addListener({
+            try {
+                request.get()
+            } catch (_: Exception) {
+                if (camera !== boundCamera) return@addListener
+                val actual = camera.cameraInfo.zoomState.value?.zoomRatio ?: zoomRatio
+                requestedZoomRatio = zoomRatioAfterFailure(
+                    failedTarget = target,
+                    latestRequested = requestedZoomRatio,
+                    actualZoomRatio = actual
+                )
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
 
     // 위치 업데이트 시작/종료
     DisposableEffect(Unit) {
         locationHelper.start()
-        onDispose { locationHelper.stop() }
+        onDispose {
+            bindRequests.invalidate()
+            cameraProvider?.unbindAll()
+            boundCamera = null
+            locationHelper.stop()
+        }
     }
 
     // 카메라 바인딩
-    LaunchedEffect(previewView, lensFacing, config.aspectRatio) {
+    LaunchedEffect(previewView, lensFacing, config.aspectRatio, displayRotation) {
+        val requestToken = bindRequests.start()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
-            val cameraProvider = future.get()
+            if (!bindRequests.isCurrent(requestToken)) return@addListener
+            val provider = future.get()
+            cameraProvider = provider
             
             val cameraAspectRatio = when (config.aspectRatio) {
                 StampAspectRatio.RATIO_9_16 -> AspectRatio.RATIO_16_9
@@ -105,6 +148,7 @@ fun CameraScreen(
 
             val preview = Preview.Builder()
                 .setTargetAspectRatio(cameraAspectRatio)
+                .setTargetRotation(displayRotation)
                 .build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
@@ -112,6 +156,7 @@ fun CameraScreen(
             val capture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .setTargetAspectRatio(cameraAspectRatio)
+                .setTargetRotation(displayRotation)
                 .build()
             
             imageCapture.value = capture
@@ -121,17 +166,26 @@ fun CameraScreen(
                 else -> CameraSelector.DEFAULT_BACK_CAMERA
             }
             try {
-                if (!cameraProvider.hasCamera(selectedCamera)) {
+                if (!provider.hasCamera(selectedCamera)) {
                     Toast.makeText(context, "해당 카메라를 사용할 수 없습니다.", Toast.LENGTH_SHORT).show()
                     return@addListener
                 }
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                provider.unbindAll()
+                val camera = provider.bindToLifecycle(
                     lifecycleOwner,
                     selectedCamera,
                     preview,
                     capture
                 )
+                boundCamera = camera
+                val zoomState = camera.cameraInfo.zoomState.value
+                if (zoomState != null) {
+                    minZoomRatio = zoomState.minZoomRatio
+                    maxZoomRatio = zoomState.maxZoomRatio
+                    zoomRatio = zoomState.zoomRatio
+                    requestedZoomRatio = requestedZoomRatio.coerceIn(minZoomRatio, maxZoomRatio)
+                    requestZoom(camera, requestedZoomRatio)
+                }
             } catch (e: Exception) {
                 // 바인딩 실패 무시 (로그만)
             }
@@ -148,6 +202,17 @@ fun CameraScreen(
 
     DisposableEffect(previewView) {
         onDispose { PreviewFilterApplier.clear(previewView) }
+    }
+
+    DisposableEffect(boundCamera, lifecycleOwner) {
+        val zoomState = boundCamera?.cameraInfo?.zoomState
+        val observer = Observer<androidx.camera.core.ZoomState> { state ->
+            minZoomRatio = state.minZoomRatio
+            maxZoomRatio = state.maxZoomRatio
+            zoomRatio = state.zoomRatio
+        }
+        zoomState?.observe(lifecycleOwner, observer)
+        onDispose { zoomState?.removeObserver(observer) }
     }
 
     // 미리보기 각인 문구를 1초마다 갱신
@@ -267,16 +332,36 @@ fun CameraScreen(
         }
     }
 
+    fun applyZoomScale(scaleFactor: Float) {
+        val camera = boundCamera ?: return
+        val target = nextZoomRatio(
+            current = requestedZoomRatio,
+            scaleFactor = scaleFactor,
+            min = minZoomRatio,
+            max = maxZoomRatio
+        )
+        requestZoom(camera, target)
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        val (frameWidth, frameHeight) = if (maxWidth / maxHeight > displayAspectRatio) {
+            (maxHeight * displayAspectRatio) to maxHeight
+        } else {
+            maxWidth to (maxWidth / displayAspectRatio)
+        }
         // 테두리가 있으면 로고/각인 텍스트가 겹치지 않도록 안전 여백을 추가로 확보한다.
         // ImageStamper의 실제 각인 로직과 동일한 비율(BorderMetrics)을 사용해 결과물과 어긋나지 않게 한다.
-        val borderInset = maxWidth * BorderMetrics.contentInsetFraction(config.border, config.borderThickness)
+        val borderInset = frameWidth * BorderMetrics.contentInsetFraction(config.border, config.borderThickness)
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(config.aspectRatio.value)
+                .size(frameWidth, frameHeight)
                 .align(Alignment.Center)
+                .pointerInput(boundCamera, minZoomRatio, maxZoomRatio) {
+                    detectTransformGestures { _, _, gestureZoom, _ ->
+                        applyZoomScale(gestureZoom)
+                    }
+                }
         ) {
             AndroidView(
                 factory = { previewView },
@@ -432,6 +517,11 @@ fun CameraScreen(
             text = "전환",
             active = false,
             onClick = {
+                requestedZoomRatio = 1f
+                zoomRatio = 1f
+                minZoomRatio = 1f
+                maxZoomRatio = 1f
+                boundCamera = null
                 lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                     CameraSelector.LENS_FACING_BACK
                 } else {
@@ -444,6 +534,31 @@ fun CameraScreen(
                 .padding(bottom = 40.dp)
         )
 
+        // 줌 축소/확대 버튼과 CameraX가 보고한 실제 배율
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 118.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ZoomButton(
+                label = "−",
+                enabled = zoomRatio > minZoomRatio + 0.001f,
+                onClick = { applyZoomScale(1f / ZOOM_BUTTON_FACTOR) }
+            )
+            Text(
+                text = String.format(java.util.Locale.US, "%.1f×", zoomRatio),
+                color = Color.White,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            ZoomButton(
+                label = "+",
+                enabled = zoomRatio < maxZoomRatio - 0.001f,
+                onClick = { applyZoomScale(ZOOM_BUTTON_FACTOR) }
+            )
+        }
         // 촬영 버튼
         Box(
             modifier = Modifier
@@ -490,6 +605,29 @@ private fun CameraCircleButton(
             fontSize = if (text == "전환") 12.sp else 11.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun ZoomButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (enabled) 0.95f else 0.4f))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color.Black.copy(alpha = if (enabled) 1f else 0.45f),
+            fontSize = 24.sp,
+            textAlign = TextAlign.Center
         )
     }
 }
