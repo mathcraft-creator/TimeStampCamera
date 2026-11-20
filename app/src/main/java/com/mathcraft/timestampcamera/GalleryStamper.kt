@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import java.text.ParseException
 import java.text.SimpleDateFormat
@@ -94,22 +95,29 @@ object GalleryStamper {
 
     private val OFFSET_REGEX = Regex("[+-]\\d{2}:\\d{2}")
 
-    private fun queryMediaStoreTime(context: Context, uri: Uri): Date? = try {
-        context.contentResolver.query(
-            uri,
-            arrayOf(MediaStore.MediaColumns.DATE_TAKEN, MediaStore.MediaColumns.DATE_MODIFIED),
-            null, null, null
-        )?.use { c ->
-            if (!c.moveToFirst()) return@use null
-            val takenIdx = c.getColumnIndex(MediaStore.MediaColumns.DATE_TAKEN)
-            val modIdx = c.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
-            val takenMs = if (takenIdx >= 0 && !c.isNull(takenIdx)) c.getLong(takenIdx) else 0L
-            val modSec = if (modIdx >= 0 && !c.isNull(modIdx)) c.getLong(modIdx) else 0L
-            when {
-                takenMs > 0 -> Date(takenMs)
-                modSec > 0 -> Date(modSec * 1000)
-                else -> null
-            }
+    /**
+     * EXIF 가 없을 때 쓸 파일 날짜를 조회한다.
+     * Uri 제공자마다 지원하는 컬럼이 달라(사진 선택기 Uri 는 DATE_MODIFIED 미지원,
+     * 문서 Uri 는 MediaStore 컬럼 미지원) 지원하지 않는 컬럼이 섞이면 쿼리 전체가 예외로
+     * 실패한다. 그래서 컬럼을 하나씩 따로 조회한다.
+     */
+    private fun queryMediaStoreTime(context: Context, uri: Uri): Date? {
+        val candidates = listOf(
+            MediaStore.MediaColumns.DATE_TAKEN to 1L,               // ms
+            MediaStore.MediaColumns.DATE_MODIFIED to 1000L,         // sec
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED to 1L   // ms
+        )
+        for ((column, toMillis) in candidates) {
+            val value = queryLongColumn(context, uri, column) ?: continue
+            if (value > 0) return Date(value * toMillis)
+        }
+        return null
+    }
+
+    private fun queryLongColumn(context: Context, uri: Uri, column: String): Long? = try {
+        context.contentResolver.query(uri, arrayOf(column), null, null, null)?.use { c ->
+            val idx = c.getColumnIndex(column)
+            if (c.moveToFirst() && idx >= 0 && !c.isNull(idx)) c.getLong(idx) else null
         }
     } catch (e: Exception) {
         null
