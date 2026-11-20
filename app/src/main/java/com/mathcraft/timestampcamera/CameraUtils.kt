@@ -40,11 +40,13 @@ fun cropToSquare(bitmap: Bitmap): Bitmap {
 }
 
 /** 비트맵을 갤러리(사진/TimestampCamera)에 JPEG 로 저장하고 Uri 를 반환한다. */
-fun saveBitmapToGallery(context: Context, bitmap: Bitmap): Uri? {
-    val fileName = "TS_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".jpg"
+fun saveBitmapToGallery(context: Context, bitmap: Bitmap, takenAt: Date? = null): Uri? {
+    val fileName = "TS_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(takenAt ?: Date()) + ".jpg"
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        // 갤러리에서 불러온 사진은 원래 촬영 시각 순서로 정렬되도록 한다.
+        if (takenAt != null) put(MediaStore.Images.Media.DATE_TAKEN, takenAt.time)
         put(
             MediaStore.Images.Media.RELATIVE_PATH,
             Environment.DIRECTORY_PICTURES + "/TimestampCamera"
