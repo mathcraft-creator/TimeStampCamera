@@ -3,6 +3,9 @@ package com.mathcraft.timestampcamera
 import android.content.res.Configuration
 import android.view.Surface
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -28,6 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -238,6 +242,37 @@ fun CameraScreen(
                 if (addr != null) cachedAddress = addr
             }
             delay(5000)
+        }
+    }
+
+    // 갤러리 이미지(직접 촬영하지 않은 사진)에 원래 촬영 시각을 각인
+    var importing by remember { mutableStateOf(false) }
+    val galleryPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 20)
+    ) { uris ->
+        if (uris.isEmpty() || importing) return@rememberLauncherForActivityResult
+        val importConfig = config
+        importing = true
+        scope.launch {
+            val results = withContext(Dispatchers.Default) {
+                uris.map { uri ->
+                    try {
+                        GalleryStamper.stampAndSave(context, uri, importConfig)
+                    } catch (e: Throwable) {
+                        GalleryStamper.Result(null, PhotoTimeSource.NONE)
+                    }
+                }
+            }
+            importing = false
+            val ok = results.count { it.uri != null }
+            val noTime = results.count { it.uri != null && it.timeSource == PhotoTimeSource.NONE }
+            val fromFile = results.count { it.uri != null && it.timeSource == PhotoTimeSource.MEDIA_STORE }
+            val msg = buildString {
+                append(if (ok == results.size) "각인 저장 완료 ${ok}장" else "각인 저장 ${ok}/${results.size}장")
+                if (fromFile > 0) append("\n촬영정보 없음 ${fromFile}장: 파일 날짜 사용")
+                if (noTime > 0) append("\n시간정보 없음 ${noTime}장: 날짜 생략")
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -477,6 +512,26 @@ fun CameraScreen(
                 .padding(16.dp)
         ) {
             Icon(Icons.Filled.Settings, contentDescription = "설정")
+        }
+
+        // 갤러리 사진 불러와 각인 버튼
+        FloatingActionButton(
+            onClick = {
+                if (!importing) {
+                    galleryPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            if (importing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Filled.PhotoLibrary, contentDescription = "갤러리 사진에 시간 각인")
+            }
         }
 
         if (filterPanelExpanded) {
